@@ -165,8 +165,31 @@ module TelldusLive
 end
 
 if __FILE__ == $PROGRAM_NAME
-  auth = YAML.load_file(File.join([File.dirname(__FILE__), 'auth.yml']))
-  command = ARGV.shift
+  auth_file = File.join([File.dirname(__FILE__), 'auth.yml'])
+  args = []
+  while arg = ARGV.shift
+    if arg =~ /^\-+(\w+)/
+      $1.split(//).each do |aa|
+        case aa
+        when 'h'
+          $help = true
+        when 'd'
+          $debug = true
+        when 'A'
+          auth_file = ARGV.shift
+        else
+          puts "Unknown option: -#{aa}"
+        end
+      end
+    else
+      args << arg
+    end
+  end
+  
+  auth = YAML.load_file(auth_file)
+  unless $help
+    command = args.shift
+  end
 
   case command
   when "devices"
@@ -176,11 +199,11 @@ if __FILE__ == $PROGRAM_NAME
     end
 
   when "dim"
-    raise "Not enough arguments. Expected 2 arguments." if ARGV.length < 2
+    raise "Not enough arguments. Expected 2 arguments." if args.length < 2
 
     client = TelldusLive::Client.new(auth)
-    device = client.device(ARGV.shift.to_i)
-    level = ARGV.shift
+    device = client.device(args.shift.to_i)
+    level = args.shift
 
     raise "Could not parse new level: #{level}" unless level.match(/^([+-]?)(\d+)$/)
     
@@ -205,16 +228,20 @@ if __FILE__ == $PROGRAM_NAME
     end
 
   when "sensor"
-    raise "Not enough arguments. Expected 1 arguments." if ARGV.length < 1
+    raise "Not enough arguments. Expected 1 arguments." if args.length < 1
 
     client = TelldusLive::Client.new(auth)
-    sensor = client.sensor(ARGV.shift.to_i)
+    sensor = client.sensor(args.shift.to_i)
     puts sensor
 
   else
-    puts "Usage:"
-    puts "  #{$PROGRAM_NAME} command [argument]..."
-
+    puts <<EOHELP
+Usage:
+  #{$PROGRAM_NAME} <-hd> <-A auth.yml> command [argument]...
+  -d  Debug mode (more verbose)
+  -h  Output this help
+Current command: #{([command]+args).join(' ')}
+EOHELP
     exit 1
   end
 end
